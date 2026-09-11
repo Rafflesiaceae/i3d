@@ -1,0 +1,10 @@
+Vendored yyjson
+===============
+
+Version: 0.12.0
+Upstream: https://github.com/ibireme/yyjson
+Release archive: https://github.com/ibireme/yyjson/archive/refs/tags/0.12.0.tar.gz
+Archive SHA-256: b16246f617b2a136c78d73e5e2647c6f1de1313e46678062985bdcf1f40bb75d
+
+``yyjson.c``, ``yyjson.h``, and ``LICENSE`` are copied without modification
+from that release archive. Update all three together when upgrading.

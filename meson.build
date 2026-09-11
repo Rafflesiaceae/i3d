@@ -12,9 +12,22 @@ project(
 
 cc = meson.get_compiler('c')
 luajit_dep = dependency('luajit')
-threads_dep = dependency('threads')
 math_dep = cc.find_library('m', required: true)
-yyjson_dep = dependency('yyjson', version: '>=0.12.0')
+
+# Keep the single-file upstream library isolated from the daemon's strict
+# warning policy while retaining C23 and the selected build type.
+yyjson_include = include_directories('vendor/yyjson', is_system: true)
+yyjson_library = static_library(
+  'yyjson-vendored',
+  'vendor/yyjson/yyjson.c',
+  include_directories: yyjson_include,
+  install: false,
+  override_options: ['warning_level=0', 'werror=false'],
+)
+yyjson_dep = declare_dependency(
+  include_directories: yyjson_include,
+  link_with: yyjson_library,
+)
 
 i3d_sources = files(
   'src/daemon.c',
@@ -29,7 +42,7 @@ i3d_sources = files(
 i3d_executable = executable(
   'i3d',
   i3d_sources,
-  dependencies: [luajit_dep, threads_dep, math_dep, yyjson_dep],
+  dependencies: [luajit_dep, math_dep, yyjson_dep],
   include_directories: include_directories('src'),
   install: true,
 )

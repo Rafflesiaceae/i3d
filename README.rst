@@ -50,7 +50,8 @@ The title-hiding example exposes an explicit ``ignore_case`` setting instead of
 Build and install
 -----------------
 
-Dependencies are Meson, a C23 compiler, LuaJIT, and yyjson 0.12 or newer.
+Dependencies are Meson, a C23 compiler, and LuaJIT. yyjson 0.12.0 is vendored
+from its upstream release so builds do not depend on a system yyjson package.
 
 ::
 
