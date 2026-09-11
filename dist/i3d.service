@@ -1,0 +1,13 @@
+[Unit]
+Description=I3d
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=i3d --journald
+Restart=on-failure
+RestartSec=1s
+
+[Install]
+WantedBy=graphical-session.target
