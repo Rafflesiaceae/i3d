@@ -1,5 +1,11 @@
 -- Move fullscreen windows to the first free workspace starting at four.
-local ignored_class_names = {}
+-- Match lowercased X11 instance and class names for apps that manage fullscreen
+-- transitions themselves and should stay on their current workspace.
+local ignored_class_names = {
+	chromium = true,
+	firefox = true,
+	mpv = true,
+}
 local base_workspace = 4
 local scan_max = 64
 
@@ -20,10 +26,8 @@ end
 local function is_ignored(con_id)
 	local names = i3.get_class_names(con_id) or {}
 	for _, name in ipairs(names) do
-		for _, ignored in ipairs(ignored_class_names) do
-			if name == ignored then
-				return true
-			end
+		if type(name) == "string" and ignored_class_names[name:lower()] then
+			return true
 		end
 	end
 	return false
