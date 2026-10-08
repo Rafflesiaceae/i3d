@@ -216,6 +216,9 @@ static void handle_source(struct i3d_app *app, struct i3d_source *source,
   case I3D_SOURCE_PID_POLL:
     i3d_pid_dispatch_poll(app, source->owner);
     break;
+  case I3D_SOURCE_INOTIFY_WATCH:
+    i3d_inotify_dispatch(app, source->owner);
+    break;
   }
 }
 

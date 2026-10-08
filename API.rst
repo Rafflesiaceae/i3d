@@ -4,7 +4,7 @@ i3d Lua API
 Globals
 -------
 
-Every config receives ``i3``, ``pid``, ``time``, ``exec``, ``log``,
+Every config receives ``i3``, ``pid``, ``inotify``, ``time``, ``exec``, ``log``,
 ``i3d_debug``, and ``__file__``. In restricted mode ``debug`` is the same
 boolean. In full mode, the standard ``debug`` library remains intact and its
 ``debug.enabled`` member reflects the daemon setting. Lua calls use positional
@@ -76,6 +76,17 @@ and transparently falls back to a timerfd-driven ``/proc`` scan when the kernel
 or permissions do not expose it.
 
 ``time.now_sec()`` returns Unix time in whole seconds.
+
+Filesystem watches
+------------------
+
+``inotify.watch_new(directory, callback) -> stop`` watches one existing
+directory, without recursing into subdirectories. A ``~/`` prefix expands
+using ``HOME``. The callback receives the full path of each file created in
+the directory or moved into it. Directory events are ignored. The returned
+stop function is idempotent. Watching ``IN_CREATE`` reports files as soon as
+they appear; applications that write temporary files and rename them on
+completion also produce an ``IN_MOVED_TO`` callback for the final name.
 
 Execution and logging
 ---------------------

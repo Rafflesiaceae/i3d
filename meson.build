@@ -32,6 +32,7 @@ yyjson_dep = declare_dependency(
 i3d_sources = files(
   'src/daemon.c',
   'src/ipc.c',
+  'src/inotify.c',
   'src/log.c',
   'src/lua_runtime.c',
   'src/main.c',

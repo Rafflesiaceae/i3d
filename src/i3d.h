@@ -37,6 +37,7 @@ enum i3d_source_kind {
   I3D_SOURCE_I3_EVENT,
   I3D_SOURCE_PID_NETLINK,
   I3D_SOURCE_PID_POLL,
+  I3D_SOURCE_INOTIFY_WATCH,
 };
 
 struct i3d_app;
@@ -73,6 +74,16 @@ struct i3d_pid_watch {
   struct i3d_source source;
   pid_t *snapshot;
   size_t snapshot_len;
+};
+
+struct i3d_inotify_watch {
+  struct i3d_inotify_watch *next;
+  struct i3d_script *script;
+  int callback_ref;
+  bool active;
+  int fd;
+  char *directory;
+  struct i3d_source source;
 };
 
 struct i3d_script {
@@ -122,6 +133,7 @@ struct i3d_app {
   struct i3d_registry *registry;
   struct i3d_registry *retired_registry;
   struct i3d_pid_watch *pid_watches;
+  struct i3d_inotify_watch *inotify_watches;
 
   yyjson_doc *event_tree;
   char *event_tree_raw;
@@ -151,6 +163,8 @@ void i3d_dispatch_json_event(struct i3d_app *app, uint32_t ipc_type,
 void i3d_event_cache_clear(struct i3d_app *app);
 void i3d_lua_call_pid(struct i3d_app *app, struct i3d_pid_watch *watch,
                       pid_t child_pid, pid_t parent_pid);
+void i3d_lua_call_inotify(struct i3d_app *app, struct i3d_inotify_watch *watch,
+                          const char *path);
 bool i3d_pid_is_ancestor(pid_t ancestor, pid_t descendant);
 
 int i3d_pid_watch_add(struct i3d_app *app, struct i3d_script *script,
@@ -161,6 +175,15 @@ void i3d_pid_watch_remove_script(struct i3d_app *app,
                                  struct i3d_script *script);
 void i3d_pid_dispatch_netlink(struct i3d_app *app);
 void i3d_pid_dispatch_poll(struct i3d_app *app, struct i3d_pid_watch *watch);
+
+int i3d_inotify_watch_add(struct i3d_app *app, struct i3d_script *script,
+                          int callback_ref, const char *directory,
+                          struct i3d_inotify_watch **out);
+void i3d_inotify_watch_stop(struct i3d_app *app,
+                            struct i3d_inotify_watch *watch);
+void i3d_inotify_watch_remove_script(struct i3d_app *app,
+                                     struct i3d_script *script);
+void i3d_inotify_dispatch(struct i3d_app *app, struct i3d_inotify_watch *watch);
 
 int i3d_daemon_run(struct i3d_app *app);
 void i3d_daemon_cleanup(struct i3d_app *app);

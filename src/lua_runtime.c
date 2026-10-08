@@ -1056,6 +1056,44 @@ static int lua_pid_watch_new(lua_State *lua) {
   return 1;
 }
 
+static int lua_inotify_watch_stop(lua_State *lua) {
+  struct i3d_inotify_watch *watch = lua_touserdata(lua, lua_upvalueindex(1));
+  struct i3d_script *script = current_script(lua);
+  if (lua_gettop(lua) != 0) {
+    return luaL_error(lua, "inotify watch stop takes no arguments");
+  }
+  i3d_inotify_watch_stop(script->app, watch);
+  return 0;
+}
+
+static int lua_inotify_watch_new(lua_State *lua) {
+  if (lua_gettop(lua) != 2) {
+    return luaL_error(lua, "inotify.watch_new takes a directory and callback");
+  }
+  luaL_checktype(lua, 1, LUA_TSTRING);
+  luaL_checktype(lua, 2, LUA_TFUNCTION);
+  size_t directory_len = 0;
+  const char *directory = lua_tolstring(lua, 1, &directory_len);
+  if (strlen(directory) != directory_len) {
+    return luaL_error(lua, "inotify directory must not contain NUL bytes");
+  }
+  // Keep the callback alive for as long as its native watch is registered.
+  lua_pushvalue(lua, 2);
+  int callback_ref = luaL_ref(lua, LUA_REGISTRYINDEX);
+  struct i3d_script *script = current_script(lua);
+  struct i3d_inotify_watch *watch = NULL;
+  if (i3d_inotify_watch_add(script->app, script, callback_ref, directory,
+                            &watch) < 0) {
+    int saved_errno = errno;
+    luaL_unref(lua, LUA_REGISTRYINDEX, callback_ref);
+    return luaL_error(lua, "watch directory %s: %s", directory,
+                      strerror(saved_errno));
+  }
+  lua_pushlightuserdata(lua, watch);
+  lua_pushcclosure(lua, lua_inotify_watch_stop, 1);
+  return 1;
+}
+
 static int append_output(struct i3d_buffer *buffer, const char *data,
                          size_t length) {
   // Cap captured streams independently so a faulty config cannot consume all
@@ -1410,6 +1448,10 @@ static void install_environment(struct i3d_script *script) {
   lua_setglobal(lua, "pid");
 
   lua_newtable(lua);
+  set_function(lua, "watch_new", lua_inotify_watch_new);
+  lua_setglobal(lua, "inotify");
+
+  lua_newtable(lua);
   set_function(lua, "now_sec", lua_time_now_sec);
   lua_setglobal(lua, "time");
 }
@@ -1542,6 +1584,7 @@ static struct i3d_script *load_script(struct i3d_app *app, const char *path) {
 failed:
   if (script->lua != NULL) {
     i3d_pid_watch_remove_script(app, script);
+    i3d_inotify_watch_remove_script(app, script);
     lua_close(script->lua);
   }
   free(script->path);
@@ -1625,6 +1668,7 @@ void i3d_registry_free(struct i3d_app *app, struct i3d_registry *registry) {
   while (script != NULL) {
     struct i3d_script *next = script->next;
     i3d_pid_watch_remove_script(app, script);
+    i3d_inotify_watch_remove_script(app, script);
     lua_close(script->lua);
     free(script->path);
     free(script->base);
@@ -1768,6 +1812,26 @@ void i3d_lua_call_pid(struct i3d_app *app, struct i3d_pid_watch *watch,
   if (guarded_pcall(script, 2, 0) != 0) {
     i3d_log(app, I3D_LOG_ERROR, "pid.watch_new callback %s: %s", script->base,
             lua_tostring(script->lua, -1));
+    lua_pop(script->lua, 1);
+  }
+  app->dispatching = false;
+  i3d_event_cache_clear(app);
+}
+
+void i3d_lua_call_inotify(struct i3d_app *app, struct i3d_inotify_watch *watch,
+                          const char *path) {
+  if (!watch->active) {
+    return;
+  }
+  struct i3d_script *script = watch->script;
+  // Keep i3 and PID callbacks on the same per-callback tree-cache lifecycle.
+  i3d_event_cache_clear(app);
+  app->dispatching = true;
+  lua_rawgeti(script->lua, LUA_REGISTRYINDEX, watch->callback_ref);
+  lua_pushstring(script->lua, path);
+  if (guarded_pcall(script, 1, 0) != 0) {
+    i3d_log(app, I3D_LOG_ERROR, "inotify.watch_new callback %s: %s",
+            script->base, lua_tostring(script->lua, -1));
     lua_pop(script->lua, 1);
   }
   app->dispatching = false;
