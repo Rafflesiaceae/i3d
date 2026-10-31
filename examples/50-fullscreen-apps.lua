@@ -5,6 +5,7 @@ local ignored_class_names = {
 	chromium = true,
 	firefox = true,
 	mpv = true,
+	gzg = true,
 }
 local base_workspace = 4
 local scan_max = 64
