@@ -62,9 +62,34 @@ Convenience calls are::
    i3.get_bar_config(bar_id)
    i3.get_window_pid(con_id)
    i3.get_class_names(con_id)
+   i3.get_window_property(con_id, atom_name)
 
 One parsed ``GET_TREE`` document is cached for the duration of each event or PID
 callback and released afterward.
+
+``i3.get_window_property(con_id, atom_name)`` reads an X11 property directly
+through XCB and returns a table with ``type`` (the property's type atom name),
+``format`` (8, 16, or 32), and ``value``. Format 8 returns a binary Lua string,
+preserving embedded NUL bytes. Formats 16 and 32 return arrays of unsigned
+integers; ATOM properties contain numeric atom IDs. Empty properties return
+an empty string or array. For example::
+
+   local property = i3.get_window_property(event.con_id, "_GTK_APPLICATION_ID")
+   if property and property.value == "com.carriez.flutter_hbb" then
+       -- Handle windows carrying this application ID.
+   end
+
+An absent property, unknown atom, missing container, or closed window returns
+``nil``. Invalid arguments, X connection/protocol failures, and properties over
+1 MiB raise Lua errors. Atom names must contain 1..65535 bytes without NULs.
+Property reads never delete values or create atoms. Values are read afresh on
+each call; this API does not subscribe to property changes.
+
+The X connection opens on the first property read using ``DISPLAY`` and the
+normal X authentication environment. It is shared across configs, with a
+bounded cache of existing atom names and IDs. X reply waits share a two-second
+deadline, shortened to the remaining handler timeout when enabled. A failed
+connection is discarded and opened again on a later call.
 
 Processes and time
 ------------------

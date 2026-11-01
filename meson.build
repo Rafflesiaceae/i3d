@@ -12,6 +12,7 @@ project(
 
 cc = meson.get_compiler('c')
 luajit_dep = dependency('luajit')
+xcb_dep = dependency('xcb')
 math_dep = cc.find_library('m', required: true)
 
 # Keep the single-file upstream library isolated from the daemon's strict
@@ -43,7 +44,7 @@ i3d_sources = files(
 i3d_executable = executable(
   'i3d',
   i3d_sources,
-  dependencies: [luajit_dep, math_dep, yyjson_dep],
+  dependencies: [luajit_dep, math_dep, xcb_dep, yyjson_dep],
   include_directories: include_directories('src'),
   install: true,
 )

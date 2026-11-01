@@ -545,6 +545,76 @@ static int lua_i3_get_class_names(lua_State *lua) {
   return 1;
 }
 
+static int lua_i3_get_window_property(lua_State *lua) {
+  int64_t id = check_integer(lua, 1, "con_id");
+  size_t name_length;
+  const char *name = luaL_checklstring(lua, 2, &name_length);
+  if (name_length == 0 || name_length > UINT16_MAX ||
+      memchr(name, '\0', name_length) != NULL) {
+    return luaL_argerror(lua, 2,
+                         "atom name must contain 1..65535 non-NUL bytes");
+  }
+
+  bool owned = false;
+  yyjson_doc *doc = acquire_tree(lua, &owned);
+  int64_t workspace = 0;
+  yyjson_val *node =
+      find_node_by_id(yyjson_doc_get_root(doc), id, 0, &workspace, 0);
+  yyjson_val *window = node == NULL ? NULL : yyjson_obj_get(node, "window");
+  int64_t window_id = yyjson_is_int(window) ? yyjson_get_sint(window) : 0;
+  if (owned) {
+    yyjson_doc_free(doc);
+  }
+  if (window_id <= 0 || window_id > UINT32_MAX) {
+    lua_pushnil(lua);
+    return 1;
+  }
+
+  // Native waits cannot be interrupted by Lua's instruction hook, so cap X
+  // reply waits at two seconds and honor any earlier handler deadline.
+  struct i3d_script *script = current_script(lua);
+  uint64_t deadline = monotonic_milliseconds() + 2000U;
+  if (script->app->handler_timeout_ms != 0) {
+    uint64_t handler_deadline = timespec_milliseconds(&script->hook_deadline);
+    if (handler_deadline < deadline) {
+      deadline = handler_deadline;
+    }
+  }
+  struct i3d_xcb_property property;
+  if (i3d_xcb_get_property(&script->app->xcb, (xcb_window_t)window_id, name,
+                           deadline, &property) < 0) {
+    return luaL_error(lua, "read X property %s: %s", name, strerror(errno));
+  }
+  if (property.reply == NULL) {
+    lua_pushnil(lua);
+    return 1;
+  }
+
+  lua_createtable(lua, 0, 3);
+  lua_pushstring(lua, property.type_name);
+  lua_setfield(lua, -2, "type");
+  lua_pushinteger(lua, property.reply->format);
+  lua_setfield(lua, -2, "format");
+  const void *data = xcb_get_property_value(property.reply);
+  if (property.reply->format == 8) {
+    // Preserve binary strings, including embedded NULs and empty properties.
+    lua_pushlstring(lua, data, property.reply->value_len);
+  } else {
+    lua_createtable(lua, (int)property.reply->value_len, 0);
+    for (uint32_t index = 0; index < property.reply->value_len; ++index) {
+      uint32_t value = property.reply->format == 16
+                           ? ((const uint16_t *)data)[index]
+                           : ((const uint32_t *)data)[index];
+      lua_pushnumber(lua, (lua_Number)value);
+      lua_rawseti(lua, -2, (int)index + 1);
+    }
+  }
+  lua_setfield(lua, -2, "value");
+  free(property.type_name);
+  free(property.reply);
+  return 1;
+}
+
 static bool json_integer(yyjson_val *value, int64_t *output) {
   if (yyjson_is_sint(value)) {
     *output = yyjson_get_sint(value);
@@ -1440,6 +1510,7 @@ static void install_environment(struct i3d_script *script) {
   set_function(lua, "get_bar_config", lua_i3_get_bar_config);
   set_function(lua, "get_window_pid", lua_i3_get_window_pid);
   set_function(lua, "get_class_names", lua_i3_get_class_names);
+  set_function(lua, "get_window_property", lua_i3_get_window_property);
   lua_setglobal(lua, "i3");
 
   lua_newtable(lua);

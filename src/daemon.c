@@ -301,6 +301,7 @@ void i3d_daemon_cleanup(struct i3d_app *app) {
   app->retired_registry = NULL;
   i3d_event_cache_clear(app);
   i3d_ipc_close(app);
+  i3d_xcb_backend_destroy(&app->xcb);
   int *fds[] = {&app->signal_fd,       &app->inotify_fd,
                 &app->reload_timer_fd, &app->reconnect_timer_fd,
                 &app->pid_netlink_fd,  &app->epoll_fd};

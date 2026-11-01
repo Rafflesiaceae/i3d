@@ -50,8 +50,9 @@ The title-hiding example exposes an explicit ``ignore_case`` setting instead of
 Build and install
 -----------------
 
-Dependencies are Meson, a C23 compiler, and LuaJIT. yyjson 0.12.0 is vendored
-from its upstream release so builds do not depend on a system yyjson package.
+Dependencies are Meson, a C23 compiler, LuaJIT, and libxcb. yyjson 0.12.0 is
+vendored from its upstream release so builds do not depend on a system yyjson
+package.
 
 ::
 
@@ -76,6 +77,6 @@ monotonic wall-clock limit (default 2,000 ms; 0 disables it).
 Scope
 -----
 
-i3d supports Linux and i3 only. ``src/xcb_backend.*`` defines the lifecycle
-and file-descriptor seam for a future XCB source without linking XCB or changing
-the Lua API today.
+i3d supports Linux and i3 only. ``src/xcb_backend.*`` reads X11 window
+properties through a shared connection opened on demand. Event subscriptions
+continue to use i3 IPC; X property-change notifications are not subscribed to.

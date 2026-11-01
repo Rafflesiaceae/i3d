@@ -12,6 +12,8 @@
 #include <time.h>
 #include <yyjson.h>
 
+#include "xcb_backend.h"
+
 enum i3d_log_level {
   I3D_LOG_ERROR = 3,
   I3D_LOG_WARNING = 4,
@@ -130,6 +132,7 @@ struct i3d_app {
   struct i3d_source pid_netlink_source;
 
   struct i3d_ipc ipc;
+  struct i3d_xcb_backend xcb;
   struct i3d_registry *registry;
   struct i3d_registry *retired_registry;
   struct i3d_pid_watch *pid_watches;
